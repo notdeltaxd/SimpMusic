@@ -45,7 +45,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
-import com.maxrave.simpmusic.utils.LastFmAuthHelper
 import com.maxrave.simpmusic.viewModel.SettingsViewModel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -80,8 +79,6 @@ fun MusicSourcesSettingsScreen(
     // Last.fm Auth State
     var lastFmApiKey by remember { mutableStateOf("") }
     var lastFmApiSecret by remember { mutableStateOf("") }
-    var lastFmAuthStarted by remember { mutableStateOf(false) }
-    var lastFmAuthToken by remember { mutableStateOf<String?>(null) }
     val uriHandler = LocalUriHandler.current
 
     // JioSaavn
@@ -148,51 +145,29 @@ fun MusicSourcesSettingsScreen(
                     onApiKeyChange = { lastFmApiKey = it },
                     onApiSecretChange = { lastFmApiSecret = it },
                     onStartAuth = {
-                        scope.launch {
-                            // Save API key and secret
-                            dataStoreManager.setLastFmApiKey(lastFmApiKey)
-                            dataStoreManager.setLastFmApiSecret(lastFmApiSecret)
-                            
-                            // Step 1: Fetch request token
-                            val tokenResult = LastFmAuthHelper.fetchRequestToken(lastFmApiKey, lastFmApiSecret)
-                            tokenResult.onSuccess { token ->
-                                lastFmAuthToken = token
-                                // Step 2: Open auth URL in browser
-                                val authUrl = LastFmAuthHelper.getAuthUrl(lastFmApiKey, token)
+                        viewModel.startLastFmAuth(
+                            apiKey = lastFmApiKey,
+                            apiSecret = lastFmApiSecret,
+                            onAuthUrl = { authUrl ->
                                 uriHandler.openUri(authUrl)
-                                lastFmAuthStarted = true
-                            }.onFailure { error ->
-                                println("Last.fm: Failed to get token: ${error.message}")
                             }
-                        }
+                        )
                     },
                     onGetSession = {
-                        scope.launch {
-                            val token = lastFmAuthToken
-                            if (token != null) {
-                                // Step 3: Exchange token for session key
-                                val sessionResult = LastFmAuthHelper.fetchSessionKey(
-                                    lastFmApiKey,
-                                    lastFmApiSecret,
-                                    token
-                                )
-                                sessionResult.onSuccess { (username, sessionKey) ->
-                                    // Save session to DataStore
-                                    dataStoreManager.setLastFmSession(username, sessionKey)
-                                    lastFmAuthStarted = false
-                                    lastFmAuthToken = null
-                                }.onFailure { error ->
-                                    println("Last.fm: Failed to get session: ${error.message}")
-                                }
-                            } else {
-                                println("Last.fm: No auth token - click Start Auth first")
-                            }
-                        }
+                        viewModel.getLastFmSession(
+                            apiKey = lastFmApiKey,
+                            apiSecret = lastFmApiSecret
+                        )
                     },
-                    onDisconnect = { scope.launch { dataStoreManager.clearLastFmSession() } },
+                    onDisconnect = { 
+                        scope.launch { 
+                            dataStoreManager.clearLastFmSession()
+                            viewModel.resetLastFmAuthState()
+                        } 
+                    },
                     onScrobbleToggle = { enabled -> scope.launch { dataStoreManager.setLastFmScrobbleEnabled(enabled) } },
                     onNowPlayingToggle = { enabled -> scope.launch { dataStoreManager.setLastFmNowPlayingEnabled(enabled) } },
-                    authStarted = lastFmAuthStarted,
+                    authStarted = viewModel.lastFmAuthStarted.collectAsStateWithLifecycle().value,
                 )
             }
 
@@ -368,6 +343,8 @@ private fun JioSaavnCard(
     onQualityChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val jioSaavnGreen = Color(0xFF2BC5B4)  // JioSaavn brand color
+    
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -378,38 +355,80 @@ private fun JioSaavnCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            SettingsToggleItem(
-                title = "Enable JioSaavn",
-                subtitle = "Search and play music from JioSaavn",
-                checked = enabled,
-                accentColor = accentColor,
-                onCheckedChange = onEnableToggle
-            )
-
-            if (enabled) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Audio Quality",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
+            // Header with toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Enable JioSaavn",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Search and play music from JioSaavn",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onEnableToggle,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = jioSaavnGreen,
+                        checkedThumbColor = Color.White
+                    )
                 )
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            // Quality section - only shown when enabled
+            androidx.compose.animation.AnimatedVisibility(visible = enabled) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 0.5.dp
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf("96kbps", "160kbps", "320kbps").forEach { q ->
-                        QualityChip(
-                            quality = q,
-                            selected = quality == q,
-                            accentColor = accentColor,
-                            onClick = { onQualityChange(q) },
-                            modifier = Modifier.weight(1f)
-                        )
+                    Text(
+                        text = "Audio Quality",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    Text(
+                        text = "Higher quality uses more data",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "96kbps" to "Low",
+                            "160kbps" to "Medium",
+                            "320kbps" to "High"
+                        ).forEach { (q, label) ->
+                            QualityChip(
+                                quality = q,
+                                label = label,
+                                selected = quality == q,
+                                accentColor = jioSaavnGreen,
+                                onClick = { onQualityChange(q) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
@@ -420,23 +439,33 @@ private fun JioSaavnCard(
 @Composable
 private fun QualityChip(
     quality: String,
+    label: String,
     selected: Boolean,
     accentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Button(
+    Surface(
         onClick = onClick,
         modifier = modifier,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) accentColor else MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
-        ),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) accentColor else MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
     ) {
-        Text(
-            text = quality,
-            style = MaterialTheme.typography.labelMedium
-        )
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+            Text(
+                text = quality,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (selected) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
