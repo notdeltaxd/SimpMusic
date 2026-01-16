@@ -162,7 +162,6 @@ fun MusicSourcesSettingsScreen(
                                 uriHandler.openUri(authUrl)
                                 lastFmAuthStarted = true
                             }.onFailure { error ->
-                                // Handle error - could show a toast/snackbar
                                 println("Last.fm: Failed to get token: ${error.message}")
                             }
                         }

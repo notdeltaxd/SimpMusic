@@ -1,17 +1,18 @@
 package com.maxrave.simpmusic.utils
 
+import com.maxrave.simpmusic.expect.md5Hash
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.security.MessageDigest
 
 /**
  * Last.fm API helper for authentication flow.
@@ -37,13 +38,7 @@ object LastFmAuthHelper : KoinComponent {
         val sortedParams = params.keys.sorted()
         val sortedParamsString = sortedParams.joinToString("") { key -> "$key${params[key]}" }
         val toHash = "$sortedParamsString$apiSecret"
-        return md5(toHash)
-    }
-    
-    private fun md5(input: String): String {
-        val md = MessageDigest.getInstance("MD5")
-        val digest = md.digest(input.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }
+        return md5Hash(toHash)
     }
     
     /**
