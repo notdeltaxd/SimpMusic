@@ -101,5 +101,10 @@ fun AppNavigationGraph(
                 showNavBar(false)
             },
         )
+        // Settings screen graph
+        settingsScreenGraph(
+            innerPadding = innerPadding,
+            navController = navController,
+        )
     }
 }
