@@ -2,17 +2,17 @@ package com.maxrave.simpmusic.utils
 
 import com.maxrave.simpmusic.expect.md5Hash
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 /**
  * Last.fm API helper for authentication flow.
@@ -23,12 +23,20 @@ import org.koin.core.component.inject
  * 2. Open getAuthUrl(token) in browser for user to authorize
  * 3. After user authorizes, call fetchSessionKey(token) to get session key
  */
-object LastFmAuthHelper : KoinComponent {
+object LastFmAuthHelper {
     
     private const val API_URL = "https://ws.audioscrobbler.com/2.0/"
     
     private val json = Json { ignoreUnknownKeys = true }
-    private val httpClient: HttpClient by inject()
+    
+    // Create a simple HttpClient for Last.fm API calls
+    private val httpClient by lazy {
+        HttpClient {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true })
+            }
+        }
+    }
     
     /**
      * Generate API signature using MD5 hash.
@@ -131,3 +139,4 @@ object LastFmAuthHelper : KoinComponent {
         }
     }
 }
+
