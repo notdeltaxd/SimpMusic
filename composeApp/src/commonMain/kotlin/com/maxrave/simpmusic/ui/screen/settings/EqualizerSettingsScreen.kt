@@ -100,7 +100,7 @@ fun EqualizerSettingsScreen(
                     title = stringResource(Res.string.open_system_equalizer),
                     subtitle = stringResource(Res.string.use_your_system_equalizer),
                     accentColor = accentColor,
-                    onClick = { resultLauncher.launch(null) }
+                    onClick = { resultLauncher.launch() }
                 )
             }
 

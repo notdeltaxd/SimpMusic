@@ -70,7 +70,7 @@ fun PlaybackSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     // State from ViewModel - using same pattern as old SettingScreen
-    val crossfadeEnabled by viewModel.crossfadeEnabled.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
     val crossfadeDuration by viewModel.crossfadeDuration.collectAsStateWithLifecycle()
     val normalizeVolume by viewModel.normalizeVolume.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
     val skipSilent by viewModel.skipSilent.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
@@ -197,7 +197,7 @@ fun PlaybackSettingsScreen(
                     checked = savePlaybackState,
                     accentColor = accentColor,
                     onCheckedChange = { enabled ->
-                        viewModel.setSavePlaybackState(enabled)
+                        viewModel.setSavedPlaybackState(enabled)
                     }
                 )
             }
@@ -209,7 +209,7 @@ fun PlaybackSettingsScreen(
                     checked = saveLastPlayed,
                     accentColor = accentColor,
                     onCheckedChange = { enabled ->
-                        viewModel.setSaveRecentSongAndQueue(enabled)
+                        viewModel.setSaveLastPlayed(enabled)
                     }
                 )
             }

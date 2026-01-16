@@ -184,7 +184,7 @@ fun StorageSettingsScreen(
             item {
                 SettingsClickItem(
                     title = stringResource(Res.string.limit_player_cache),
-                    subtitle = limitPlayerCache ?: "Unlimited",
+                    subtitle = LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache).toString(),
                     accentColor = accentColor,
                     onClick = { showCacheLimitDialog = true }
                 )
@@ -267,7 +267,7 @@ fun StorageSettingsScreen(
         ClearCacheDialog(
             title = stringResource(Res.string.clear_thumbnail_cache),
             onConfirm = {
-                viewModel.clearThumbnailCache()
+                viewModel.clearThumbnailCache(platformContext)
                 showClearThumbnailCacheDialog = false
             },
             onDismiss = { showClearThumbnailCacheDialog = false }
@@ -291,9 +291,9 @@ fun StorageSettingsScreen(
         SelectionDialog(
             title = stringResource(Res.string.limit_player_cache),
             options = LIMIT_CACHE_SIZE.items.map { it.toString() },
-            selectedOption = limitPlayerCache ?: "Unlimited",
+            selectedOption = LIMIT_CACHE_SIZE.getItemFromData(limitPlayerCache).toString(),
             onOptionSelected = { selected ->
-                viewModel.setPlayerCacheLimit(selected)
+                viewModel.setPlayerCacheLimit(LIMIT_CACHE_SIZE.getDataFromItem(selected))
             },
             onDismiss = { showCacheLimitDialog = false }
         )

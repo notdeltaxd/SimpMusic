@@ -251,7 +251,7 @@ fun AISettingsScreen(
                 item {
                     SettingsClickItem(
                         title = stringResource(Res.string.contributor_name),
-                        subtitle = contributor?.name ?: "Not set",
+                        subtitle = contributor?.first ?: "Not set",
                         accentColor = accentColor,
                         onClick = { showContributorNameDialog = true }
                     )
@@ -260,7 +260,7 @@ fun AISettingsScreen(
                 item {
                     SettingsClickItem(
                         title = stringResource(Res.string.contributor_email),
-                        subtitle = contributor?.email ?: "Not set",
+                        subtitle = contributor?.second ?: "Not set",
                         accentColor = accentColor,
                         onClick = { showContributorEmailDialog = true }
                     )
@@ -461,7 +461,7 @@ fun AISettingsScreen(
 
     // Contributor Name Dialog
     if (showContributorNameDialog) {
-        var nameInput by remember { mutableStateOf(contributor?.name ?: "") }
+        var nameInput by remember { mutableStateOf(contributor?.first ?: "") }
         InputDialog(
             title = stringResource(Res.string.contributor_name),
             value = nameInput,
@@ -477,7 +477,7 @@ fun AISettingsScreen(
 
     // Contributor Email Dialog
     if (showContributorEmailDialog) {
-        var emailInput by remember { mutableStateOf(contributor?.email ?: "") }
+        var emailInput by remember { mutableStateOf(contributor?.second ?: "") }
         InputDialog(
             title = stringResource(Res.string.contributor_email),
             value = emailInput,

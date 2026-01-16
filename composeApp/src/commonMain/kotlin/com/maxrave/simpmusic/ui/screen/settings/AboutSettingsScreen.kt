@@ -158,7 +158,7 @@ fun AboutSettingsScreen(
             item {
                 SettingsClickItem(
                     title = stringResource(Res.string.version),
-                    subtitle = stringResource(Res.string.version_format, VersionManager.versionName, VersionManager.versionCode.toString()),
+                    subtitle = VersionManager.getVersionName(),
                     accentColor = accentColor,
                     onClick = { }
                 )
