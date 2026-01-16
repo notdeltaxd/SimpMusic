@@ -39,6 +39,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.ExperimentalTime
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -64,7 +65,7 @@ import simpmusic.composeapp.generated.resources.donation
  * About settings screen with app info, update checking, and credits.
  * Uses SettingsViewModel like the old SettingScreen for proper state management.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalTime::class)
 @Composable
 fun AboutSettingsScreen(
     innerPadding: PaddingValues,
