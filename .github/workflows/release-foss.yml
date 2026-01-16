@@ -1,0 +1,72 @@
+name: Create Release with FOSS APK
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggered when you push a tag like v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build FOSS and Create Release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: "zulu"
+          cache: 'gradle'
+
+      - name: Update environment variables
+        env:
+          BASE_64_SIGNING_KEY: ${{ secrets.BASE_64_SIGNING_KEY }}
+        run: |
+          echo $BASE_64_SIGNING_KEY | base64 -d > simpmusic.jks
+
+      - name: Update build product flavor
+        run: |
+          echo "" >> ./gradle.properties
+          echo "isFullBuild=false" >> ./gradle.properties
+
+      - name: Build FOSS release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./build_and_sign_apk.sh --release --foss
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "SimpMusic ${{ steps.get_version.outputs.VERSION }}"
+          body: |
+            ## SimpMusic ${{ steps.get_version.outputs.VERSION }}
+            
+            ### Download
+            - **SimpMusic-foss-universal-release.apk** - Works on all devices
+            - **SimpMusic-foss-arm64-v8a-release.apk** - For modern ARM64 devices (recommended)
+            - **SimpMusic-foss-armeabi-v7a-release.apk** - For older ARM devices
+            - **SimpMusic-foss-x86_64-release.apk** - For x86_64 devices/emulators
+            
+            ### What's New
+            - See commit history for changes
+          files: |
+            composeApp/build/outputs/apk/release/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
