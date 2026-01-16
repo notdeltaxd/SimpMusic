@@ -30,13 +30,13 @@ enum class SettingsCategory(
     PLAYBACK(
         id = "playback",
         title = "Playback",
-        subtitle = "Crossfade, normalize, skip silent, save state",
+        subtitle = "Normalize, skip silent, save state",
         icon = Icons.Rounded.MusicNote
     ),
     MUSIC_SOURCES(
         id = "music_sources",
         title = "Music Sources",
-        subtitle = "JioSaavn, Last.fm, Spotify integration",
+        subtitle = "JioSaavn integration",
         icon = Icons.AutoMirrored.Rounded.QueueMusic
     ),
     APPEARANCE(

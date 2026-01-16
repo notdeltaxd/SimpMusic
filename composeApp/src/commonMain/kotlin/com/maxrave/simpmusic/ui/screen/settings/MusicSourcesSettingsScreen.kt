@@ -1,7 +1,7 @@
 package com.maxrave.simpmusic.ui.screen.settings
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,16 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -45,23 +38,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.maxrave.domain.manager.DataStoreManager
-import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
-import com.maxrave.simpmusic.viewModel.SettingsViewModel
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalUriHandler
 
 /**
- * Music Sources settings screen with Last.fm and JioSaavn configuration.
+ * Music Sources settings screen with JioSaavn configuration.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,19 +54,7 @@ fun MusicSourcesSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val dataStoreManager: DataStoreManager = koinInject()
-    val viewModel: SettingsViewModel = koinViewModel()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-
-    // Last.fm
-    val lastFmUsername by dataStoreManager.lastFmUsername.collectAsState(initial = "")
-    val lastFmSessionKey by dataStoreManager.lastFmSessionKey.collectAsState(initial = "")
-    val lastFmScrobbleEnabled by dataStoreManager.lastFmScrobbleEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
-    val lastFmNowPlayingEnabled by dataStoreManager.lastFmNowPlayingEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
-    
-    // Last.fm Auth State
-    var lastFmApiKey by remember { mutableStateOf("") }
-    var lastFmApiSecret by remember { mutableStateOf("") }
-    val uriHandler = LocalUriHandler.current
 
     // JioSaavn
     val jioSaavnEnabled by dataStoreManager.jioSaavnEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
@@ -132,52 +103,8 @@ fun MusicSourcesSettingsScreen(
                 bottom = innerPadding.calculateBottomPadding() + 16.dp
             )
         ) {
-            // Last.fm Section
-            item {
-                SettingsSectionHeader(title = "Last.fm")
-            }
-
-            item {
-                LastFmCard(
-                    isConnected = lastFmSessionKey.isNotBlank(),
-                    username = lastFmUsername,
-                    apiKey = lastFmApiKey,
-                    apiSecret = lastFmApiSecret,
-                    scrobbleEnabled = lastFmScrobbleEnabled == DataStoreManager.Values.TRUE,
-                    nowPlayingEnabled = lastFmNowPlayingEnabled == DataStoreManager.Values.TRUE,
-                    accentColor = accentColor,
-                    onApiKeyChange = { lastFmApiKey = it },
-                    onApiSecretChange = { lastFmApiSecret = it },
-                    onStartAuth = {
-                        viewModel.startLastFmAuth(
-                            apiKey = lastFmApiKey,
-                            apiSecret = lastFmApiSecret,
-                            onAuthUrl = { authUrl ->
-                                uriHandler.openUri(authUrl)
-                            }
-                        )
-                    },
-                    onGetSession = {
-                        viewModel.getLastFmSession(
-                            apiKey = lastFmApiKey,
-                            apiSecret = lastFmApiSecret
-                        )
-                    },
-                    onDisconnect = { 
-                        scope.launch { 
-                            dataStoreManager.clearLastFmSession()
-                            viewModel.resetLastFmAuthState()
-                        } 
-                    },
-                    onScrobbleToggle = { enabled -> scope.launch { dataStoreManager.setLastFmScrobbleEnabled(enabled) } },
-                    onNowPlayingToggle = { enabled -> scope.launch { dataStoreManager.setLastFmNowPlayingEnabled(enabled) } },
-                    authStarted = viewModel.lastFmAuthStarted.collectAsStateWithLifecycle().value,
-                )
-            }
-
             // JioSaavn Section
             item {
-                Spacer(modifier = Modifier.height(8.dp))
                 SettingsSectionHeader(title = "JioSaavn")
             }
 
@@ -193,146 +120,6 @@ fun MusicSourcesSettingsScreen(
 
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun LastFmCard(
-    isConnected: Boolean,
-    username: String,
-    apiKey: String,
-    apiSecret: String,
-    scrobbleEnabled: Boolean,
-    nowPlayingEnabled: Boolean,
-    accentColor: Color,
-    onApiKeyChange: (String) -> Unit,
-    onApiSecretChange: (String) -> Unit,
-    onStartAuth: () -> Unit,
-    onGetSession: () -> Unit,
-    onDisconnect: () -> Unit,
-    onScrobbleToggle: (Boolean) -> Unit,
-    onNowPlayingToggle: (Boolean) -> Unit,
-    authStarted: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Connection Status
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isConnected) Icons.Rounded.CheckCircle else Icons.Rounded.Error,
-                    contentDescription = null,
-                    tint = if (isConnected) Color(0xFFD51007) else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isConnected) "Connected as $username" else "Not connected",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            if (!isConnected) {
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Instructions
-                Text(
-                    text = "To set up Last.fm:\n1. Create an account at last.fm\n2. Get API Key & Secret from last.fm/api/account/create\n3. Enter credentials below and click 'Start Auth'\n4. Authorize in browser, then click 'Get & Save Session'",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                
-                // API Key Input
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = onApiKeyChange,
-                    label = { Text("API Key") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // API Secret Input
-                OutlinedTextField(
-                    value = apiSecret,
-                    onValueChange = onApiSecretChange,
-                    label = { Text("API Secret") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Auth Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = onStartAuth,
-                        enabled = apiKey.isNotBlank() && apiSecret.isNotBlank() && !authStarted,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFD51007)
-                        )
-                    ) {
-                        Text("1. Start Auth", color = Color.White)
-                    }
-                    
-                    Button(
-                        onClick = onGetSession,
-                        enabled = authStarted,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFD51007)
-                        )
-                    ) {
-                        Text("2. Get Session", color = Color.White)
-                    }
-                }
-            } else {
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Disconnect Button
-                OutlinedButton(
-                    onClick = onDisconnect,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Disconnect")
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-
-                SettingsToggleItem(
-                    title = "Enable scrobbling",
-                    subtitle = "Track your listening history",
-                    checked = scrobbleEnabled,
-                    accentColor = accentColor,
-                    onCheckedChange = onScrobbleToggle
-                )
-
-                SettingsToggleItem(
-                    title = "Update Now Playing",
-                    subtitle = "Show what you're currently listening to",
-                    checked = nowPlayingEnabled,
-                    accentColor = accentColor,
-                    onCheckedChange = onNowPlayingToggle
-                )
             }
         }
     }
@@ -389,7 +176,7 @@ private fun JioSaavnCard(
             }
 
             // Quality section - only shown when enabled
-            androidx.compose.animation.AnimatedVisibility(visible = enabled) {
+            AnimatedVisibility(visible = enabled) {
                 Column {
                     Spacer(modifier = Modifier.height(16.dp))
                     

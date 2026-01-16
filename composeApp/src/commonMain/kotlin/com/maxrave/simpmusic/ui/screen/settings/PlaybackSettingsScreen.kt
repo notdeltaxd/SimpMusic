@@ -61,7 +61,7 @@ import simpmusic.composeapp.generated.resources.enable_sponsor_block
 import simpmusic.composeapp.generated.resources.skip_sponsor_part_of_video
 
 /**
- * Playback settings category screen with crossfade and other playback options.
+ * Playback settings category screen with audio processing and other playback options.
  * Uses SettingsViewModel like the old SettingScreen for proper state management.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,8 +73,6 @@ fun PlaybackSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     // State from ViewModel - using same pattern as old SettingScreen
-    val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
-    val crossfadeDuration by viewModel.crossfadeDuration.collectAsStateWithLifecycle()
     val normalizeVolume by viewModel.normalizeVolume.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
     val skipSilent by viewModel.skipSilent.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
     val savePlaybackState by viewModel.savedPlaybackState.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
@@ -126,41 +124,8 @@ fun PlaybackSettingsScreen(
                 bottom = innerPadding.calculateBottomPadding() + 16.dp
             )
         ) {
-            // Section: Crossfade
-            item {
-                SettingsSectionHeader(title = "Crossfade")
-            }
-
-            item {
-                SettingsToggleItem(
-                    title = "Enable crossfade",
-                    subtitle = "Smoothly transition between songs",
-                    checked = crossfadeEnabled,
-                    accentColor = accentColor,
-                    onCheckedChange = { enabled ->
-                        viewModel.setCrossfadeEnabled(enabled)
-                    }
-                )
-            }
-
-            item {
-                SettingsSliderItem(
-                    title = "Crossfade duration",
-                    subtitle = "${crossfadeDuration} seconds",
-                    value = crossfadeDuration.toFloat(),
-                    valueRange = 1f..10f,
-                    steps = 8,
-                    enabled = crossfadeEnabled,
-                    accentColor = accentColor,
-                    onValueChange = { newValue ->
-                        viewModel.setCrossfadeDuration(newValue.toInt())
-                    }
-                )
-            }
-
             // Section: Audio Processing
             item {
-                Spacer(modifier = Modifier.height(16.dp))
                 SettingsSectionHeader(title = "Audio Processing")
             }
 
