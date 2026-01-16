@@ -41,10 +41,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.maxrave.domain.manager.DataStoreManager
+import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
+import com.maxrave.simpmusic.ui.navigation.destination.settings.DiscordLoginDestination
+import com.maxrave.simpmusic.ui.navigation.destination.settings.SpotifyLoginDestination
+import com.maxrave.simpmusic.viewModel.SettingsViewModel
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Music Sources settings screen with Last.fm and JioSaavn configuration.
@@ -57,6 +64,7 @@ fun MusicSourcesSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val dataStoreManager: DataStoreManager = koinInject()
+    val viewModel: SettingsViewModel = koinViewModel()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Last.fm
@@ -68,6 +76,15 @@ fun MusicSourcesSettingsScreen(
     // JioSaavn
     val jioSaavnEnabled by dataStoreManager.jioSaavnEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
     val jioSaavnQuality by dataStoreManager.jioSaavnQuality.collectAsState(initial = "320kbps")
+
+    // Spotify
+    val spotifyLoggedIn by viewModel.spotifyLogIn.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val spotifyLyrics by viewModel.spotifyLyrics.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val spotifyCanvas by viewModel.spotifyCanvas.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+
+    // Discord
+    val discordLoggedIn by viewModel.discordLoggedIn.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val richPresenceEnabled by viewModel.discordRichPresence.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
@@ -144,6 +161,42 @@ fun MusicSourcesSettingsScreen(
                     accentColor = accentColor,
                     onEnableToggle = { enabled -> scope.launch { dataStoreManager.setJioSaavnEnabled(enabled) } },
                     onQualityChange = { quality -> scope.launch { dataStoreManager.setJioSaavnQuality(quality) } },
+                )
+            }
+
+            // Spotify Section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsSectionHeader(title = "Spotify")
+            }
+
+            item {
+                SpotifyCard(
+                    isLoggedIn = spotifyLoggedIn,
+                    lyricsEnabled = spotifyLyrics,
+                    canvasEnabled = spotifyCanvas,
+                    accentColor = accentColor,
+                    onLogin = { navController.navigate(SpotifyLoginDestination) },
+                    onLogout = { viewModel.setSpotifyLogIn(false) },
+                    onLyricsToggle = { enabled -> viewModel.setSpotifyLyrics(enabled) },
+                    onCanvasToggle = { enabled -> viewModel.setSpotifyCanvas(enabled) },
+                )
+            }
+
+            // Discord Section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsSectionHeader(title = "Discord Integration")
+            }
+
+            item {
+                DiscordCard(
+                    isLoggedIn = discordLoggedIn,
+                    richPresenceEnabled = richPresenceEnabled,
+                    accentColor = accentColor,
+                    onLogin = { navController.navigate(DiscordLoginDestination) },
+                    onLogout = { viewModel.logOutDiscord() },
+                    onRichPresenceToggle = { enabled -> viewModel.setDiscordRichPresenceEnabled(enabled) },
                 )
             }
 
@@ -319,5 +372,165 @@ private fun QualityChip(
             text = quality,
             style = MaterialTheme.typography.labelMedium
         )
+    }
+}
+
+@Composable
+private fun SpotifyCard(
+    isLoggedIn: Boolean,
+    lyricsEnabled: Boolean,
+    canvasEnabled: Boolean,
+    accentColor: Color,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit,
+    onLyricsToggle: (Boolean) -> Unit,
+    onCanvasToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Connection Status
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isLoggedIn) Icons.Rounded.CheckCircle else Icons.Rounded.Error,
+                    contentDescription = null,
+                    tint = if (isLoggedIn) Color(0xFF1DB954) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isLoggedIn) "Connected to Spotify" else "Not connected",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Connect/Disconnect Button
+            if (isLoggedIn) {
+                OutlinedButton(
+                    onClick = onLogout,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Disconnect")
+                }
+            } else {
+                Button(
+                    onClick = onLogin,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1DB954)
+                    )
+                ) {
+                    Text("Connect to Spotify", color = Color.White)
+                }
+            }
+
+            if (isLoggedIn) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                SettingsToggleItem(
+                    title = "Enable Spotify lyrics",
+                    subtitle = "Fetch lyrics from Spotify",
+                    checked = lyricsEnabled,
+                    accentColor = accentColor,
+                    onCheckedChange = onLyricsToggle
+                )
+
+                SettingsToggleItem(
+                    title = "Enable Canvas",
+                    subtitle = "Show animated video backgrounds",
+                    checked = canvasEnabled,
+                    accentColor = accentColor,
+                    onCheckedChange = onCanvasToggle
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscordCard(
+    isLoggedIn: Boolean,
+    richPresenceEnabled: Boolean,
+    accentColor: Color,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit,
+    onRichPresenceToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Connection Status
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isLoggedIn) Icons.Rounded.CheckCircle else Icons.Rounded.Error,
+                    contentDescription = null,
+                    tint = if (isLoggedIn) Color(0xFF5865F2) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isLoggedIn) "Connected to Discord" else "Not connected",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Connect/Disconnect Button
+            if (isLoggedIn) {
+                OutlinedButton(
+                    onClick = onLogout,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Disconnect")
+                }
+            } else {
+                Button(
+                    onClick = onLogin,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF5865F2)
+                    )
+                ) {
+                    Text("Connect to Discord", color = Color.White)
+                }
+            }
+
+            if (isLoggedIn) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                SettingsToggleItem(
+                    title = "Rich Presence",
+                    subtitle = "Show what you're playing on Discord",
+                    checked = richPresenceEnabled,
+                    accentColor = accentColor,
+                    onCheckedChange = onRichPresenceToggle
+                )
+            }
+        }
     }
 }
