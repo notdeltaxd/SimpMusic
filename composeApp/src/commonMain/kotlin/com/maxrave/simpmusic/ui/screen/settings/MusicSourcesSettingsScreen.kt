@@ -47,7 +47,9 @@ import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.simpmusic.ui.navigation.destination.settings.DiscordLoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.settings.SpotifyLoginDestination
+import com.maxrave.simpmusic.utils.LastFmAuthHelper
 import com.maxrave.simpmusic.viewModel.SettingsViewModel
+import io.github.aakira.napier.Napier as Logger
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -162,19 +164,42 @@ fun MusicSourcesSettingsScreen(
                             // Save API key and secret
                             dataStoreManager.setLastFmApiKey(lastFmApiKey)
                             dataStoreManager.setLastFmApiSecret(lastFmApiSecret)
-                            // Get auth token and open URL
-                            // Token format: http://www.last.fm/api/auth/?api_key=xxx&token=xxx
-                            val authUrl = "https://www.last.fm/api/auth/?api_key=$lastFmApiKey"
-                            uriHandler.openUri(authUrl)
-                            lastFmAuthStarted = true
+                            
+                            // Step 1: Fetch request token
+                            val tokenResult = LastFmAuthHelper.fetchRequestToken(lastFmApiKey, lastFmApiSecret)
+                            tokenResult.onSuccess { token ->
+                                lastFmAuthToken = token
+                                // Step 2: Open auth URL in browser
+                                val authUrl = LastFmAuthHelper.getAuthUrl(lastFmApiKey, token)
+                                uriHandler.openUri(authUrl)
+                                lastFmAuthStarted = true
+                            }.onFailure { error ->
+                                // Handle error - could show a toast/snackbar
+                                Logger.e("Last.fm", "Failed to get token: ${error.message}")
+                            }
                         }
                     },
                     onGetSession = {
                         scope.launch {
-                            // In a real implementation, this would call the Last.fm API
-                            // to exchange the token for a session key
-                            // For now, show a placeholder message
-                            // viewModel.fetchLastFmSession(lastFmApiKey, lastFmApiSecret)
+                            val token = lastFmAuthToken
+                            if (token != null) {
+                                // Step 3: Exchange token for session key
+                                val sessionResult = LastFmAuthHelper.fetchSessionKey(
+                                    lastFmApiKey,
+                                    lastFmApiSecret,
+                                    token
+                                )
+                                sessionResult.onSuccess { (username, sessionKey) ->
+                                    // Save session to DataStore
+                                    dataStoreManager.setLastFmSession(username, sessionKey)
+                                    lastFmAuthStarted = false
+                                    lastFmAuthToken = null
+                                }.onFailure { error ->
+                                    Logger.e("Last.fm", "Failed to get session: ${error.message}")
+                                }
+                            } else {
+                                Logger.e("Last.fm", "No auth token - click Start Auth first")
+                            }
                         }
                     },
                     onDisconnect = { scope.launch { dataStoreManager.clearLastFmSession() } },
