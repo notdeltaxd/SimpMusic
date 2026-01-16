@@ -13,7 +13,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.home.SettingsDestination
 import com.maxrave.simpmusic.ui.screen.home.MoodScreen
 import com.maxrave.simpmusic.ui.screen.home.NotificationScreen
 import com.maxrave.simpmusic.ui.screen.home.RecentlySongsScreen
-import com.maxrave.simpmusic.ui.screen.home.SettingScreen
+import com.maxrave.simpmusic.ui.screen.settings.NewSettingsScreen
 import com.maxrave.simpmusic.ui.screen.other.CreditScreen
 
 fun NavGraphBuilder.homeScreenGraph(
@@ -45,7 +45,7 @@ fun NavGraphBuilder.homeScreenGraph(
         )
     }
     composable<SettingsDestination> {
-        SettingScreen(
+        NewSettingsScreen(
             navController = navController,
             innerPadding = innerPadding,
         )
