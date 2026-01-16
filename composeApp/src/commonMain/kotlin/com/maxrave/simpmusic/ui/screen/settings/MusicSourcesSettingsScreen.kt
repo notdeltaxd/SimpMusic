@@ -52,6 +52,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalUriHandler
 
 /**
  * Music Sources settings screen with Last.fm and JioSaavn configuration.
@@ -72,6 +77,13 @@ fun MusicSourcesSettingsScreen(
     val lastFmSessionKey by dataStoreManager.lastFmSessionKey.collectAsState(initial = "")
     val lastFmScrobbleEnabled by dataStoreManager.lastFmScrobbleEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
     val lastFmNowPlayingEnabled by dataStoreManager.lastFmNowPlayingEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
+    
+    // Last.fm Auth State
+    var lastFmApiKey by remember { mutableStateOf("") }
+    var lastFmApiSecret by remember { mutableStateOf("") }
+    var lastFmAuthStarted by remember { mutableStateOf(false) }
+    var lastFmAuthToken by remember { mutableStateOf<String?>(null) }
+    val uriHandler = LocalUriHandler.current
 
     // JioSaavn
     val jioSaavnEnabled by dataStoreManager.jioSaavnEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
@@ -138,13 +150,37 @@ fun MusicSourcesSettingsScreen(
                 LastFmCard(
                     isConnected = lastFmSessionKey.isNotBlank(),
                     username = lastFmUsername,
+                    apiKey = lastFmApiKey,
+                    apiSecret = lastFmApiSecret,
                     scrobbleEnabled = lastFmScrobbleEnabled == DataStoreManager.Values.TRUE,
                     nowPlayingEnabled = lastFmNowPlayingEnabled == DataStoreManager.Values.TRUE,
                     accentColor = accentColor,
-                    onConnect = { /* Last.fm auth requires web browser - not implemented yet */ },
+                    onApiKeyChange = { lastFmApiKey = it },
+                    onApiSecretChange = { lastFmApiSecret = it },
+                    onStartAuth = {
+                        scope.launch {
+                            // Save API key and secret
+                            dataStoreManager.setLastFmApiKey(lastFmApiKey)
+                            dataStoreManager.setLastFmApiSecret(lastFmApiSecret)
+                            // Get auth token and open URL
+                            // Token format: http://www.last.fm/api/auth/?api_key=xxx&token=xxx
+                            val authUrl = "https://www.last.fm/api/auth/?api_key=$lastFmApiKey"
+                            uriHandler.openUri(authUrl)
+                            lastFmAuthStarted = true
+                        }
+                    },
+                    onGetSession = {
+                        scope.launch {
+                            // In a real implementation, this would call the Last.fm API
+                            // to exchange the token for a session key
+                            // For now, show a placeholder message
+                            // viewModel.fetchLastFmSession(lastFmApiKey, lastFmApiSecret)
+                        }
+                    },
                     onDisconnect = { scope.launch { dataStoreManager.clearLastFmSession() } },
                     onScrobbleToggle = { enabled -> scope.launch { dataStoreManager.setLastFmScrobbleEnabled(enabled) } },
                     onNowPlayingToggle = { enabled -> scope.launch { dataStoreManager.setLastFmNowPlayingEnabled(enabled) } },
+                    authStarted = lastFmAuthStarted,
                 )
             }
 
@@ -211,13 +247,19 @@ fun MusicSourcesSettingsScreen(
 private fun LastFmCard(
     isConnected: Boolean,
     username: String,
+    apiKey: String,
+    apiSecret: String,
     scrobbleEnabled: Boolean,
     nowPlayingEnabled: Boolean,
     accentColor: Color,
-    onConnect: () -> Unit,
+    onApiKeyChange: (String) -> Unit,
+    onApiSecretChange: (String) -> Unit,
+    onStartAuth: () -> Unit,
+    onGetSession: () -> Unit,
     onDisconnect: () -> Unit,
     onScrobbleToggle: (Boolean) -> Unit,
     onNowPlayingToggle: (Boolean) -> Unit,
+    authStarted: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -237,7 +279,7 @@ private fun LastFmCard(
                 Icon(
                     imageVector = if (isConnected) Icons.Rounded.CheckCircle else Icons.Rounded.Error,
                     contentDescription = null,
-                    tint = if (isConnected) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isConnected) Color(0xFFD51007) else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -248,29 +290,77 @@ private fun LastFmCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Connect/Disconnect Button
-            if (isConnected) {
+            if (!isConnected) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Instructions
+                Text(
+                    text = "To set up Last.fm:\n1. Create an account at last.fm\n2. Get API Key & Secret from last.fm/api/account/create\n3. Enter credentials below and click 'Start Auth'\n4. Authorize in browser, then click 'Get & Save Session'",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                // API Key Input
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = onApiKeyChange,
+                    label = { Text("API Key") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // API Secret Input
+                OutlinedTextField(
+                    value = apiSecret,
+                    onValueChange = onApiSecretChange,
+                    label = { Text("API Secret") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Auth Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onStartAuth,
+                        enabled = apiKey.isNotBlank() && apiSecret.isNotBlank() && !authStarted,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFD51007)
+                        )
+                    ) {
+                        Text("1. Start Auth", color = Color.White)
+                    }
+                    
+                    Button(
+                        onClick = onGetSession,
+                        enabled = authStarted,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFD51007)
+                        )
+                    ) {
+                        Text("2. Get Session", color = Color.White)
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Disconnect Button
                 OutlinedButton(
                     onClick = onDisconnect,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Disconnect")
                 }
-            } else {
-                Button(
-                    onClick = onConnect,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = accentColor
-                    )
-                ) {
-                    Text("Connect to Last.fm", color = Color.White)
-                }
-            }
-
-            if (isConnected) {
+                
                 Spacer(modifier = Modifier.height(16.dp))
 
                 SettingsToggleItem(

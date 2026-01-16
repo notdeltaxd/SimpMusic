@@ -56,6 +56,9 @@ import simpmusic.composeapp.generated.resources.kill_service_on_exit
 import simpmusic.composeapp.generated.resources.kill_service_on_exit_description
 import simpmusic.composeapp.generated.resources.keep_service_alive
 import simpmusic.composeapp.generated.resources.keep_service_alive_description
+import simpmusic.composeapp.generated.resources.sponsorBlock
+import simpmusic.composeapp.generated.resources.enable_sponsor_block
+import simpmusic.composeapp.generated.resources.skip_sponsor_part_of_video
 
 /**
  * Playback settings category screen with crossfade and other playback options.
@@ -78,6 +81,7 @@ fun PlaybackSettingsScreen(
     val saveLastPlayed by viewModel.saveRecentSongAndQueue.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
     val killServiceOnExit by viewModel.killServiceOnExit.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = true)
     val keepServiceAlive by viewModel.keepServiceAlive.collectAsStateWithLifecycle()
+    val sponsorBlockEnabled by viewModel.sponsorBlockEnabled.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
@@ -240,6 +244,24 @@ fun PlaybackSettingsScreen(
                     accentColor = accentColor,
                     onCheckedChange = { enabled ->
                         viewModel.setKeepServiceAlive(enabled)
+                    }
+                )
+            }
+
+            // Section: SponsorBlock
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsSectionHeader(title = stringResource(Res.string.sponsorBlock))
+            }
+
+            item {
+                SettingsToggleItem(
+                    title = stringResource(Res.string.enable_sponsor_block),
+                    subtitle = stringResource(Res.string.skip_sponsor_part_of_video),
+                    checked = sponsorBlockEnabled,
+                    accentColor = accentColor,
+                    onCheckedChange = { enabled ->
+                        viewModel.setSponsorBlockEnabled(enabled)
                     }
                 )
             }
