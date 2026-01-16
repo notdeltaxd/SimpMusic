@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -37,27 +36,48 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.maxrave.domain.manager.DataStoreManager
-import org.koin.compose.koinInject
+import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
+import com.maxrave.simpmusic.viewModel.SettingsViewModel
+import kotlinx.coroutines.flow.map
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
+import simpmusic.composeapp.generated.resources.Res
+import simpmusic.composeapp.generated.resources.balance_media_loudness
+import simpmusic.composeapp.generated.resources.normalize_volume
+import simpmusic.composeapp.generated.resources.save_last_played
+import simpmusic.composeapp.generated.resources.save_last_played_track_and_queue
+import simpmusic.composeapp.generated.resources.save_playback_state
+import simpmusic.composeapp.generated.resources.save_shuffle_and_repeat_mode
+import simpmusic.composeapp.generated.resources.skip_no_music_part
+import simpmusic.composeapp.generated.resources.skip_silent
+import simpmusic.composeapp.generated.resources.kill_service_on_exit
+import simpmusic.composeapp.generated.resources.kill_service_on_exit_description
+import simpmusic.composeapp.generated.resources.keep_service_alive
+import simpmusic.composeapp.generated.resources.keep_service_alive_description
 
 /**
  * Playback settings category screen with crossfade and other playback options.
+ * Uses SettingsViewModel like the old SettingScreen for proper state management.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaybackSettingsScreen(
     innerPadding: PaddingValues,
     navController: NavController,
+    viewModel: SettingsViewModel = koinViewModel(),
     modifier: Modifier = Modifier,
 ) {
-    val dataStoreManager: DataStoreManager = koinInject()
-
-    val crossfadeEnabled by dataStoreManager.crossfadeEnabled.collectAsState(initial = DataStoreManager.Values.FALSE)
-    val crossfadeDuration by dataStoreManager.crossfadeDuration.collectAsState(initial = 3)
-    val normalizeVolume by dataStoreManager.normalizeVolume.collectAsState(initial = DataStoreManager.Values.FALSE)
-    val skipSilent by dataStoreManager.skipSilent.collectAsState(initial = DataStoreManager.Values.FALSE)
-    val saveStateOfPlayback by dataStoreManager.saveStateOfPlayback.collectAsState(initial = DataStoreManager.Values.TRUE)
+    // State from ViewModel - using same pattern as old SettingScreen
+    val crossfadeEnabled by viewModel.crossfadeEnabled.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val crossfadeDuration by viewModel.crossfadeDuration.collectAsStateWithLifecycle()
+    val normalizeVolume by viewModel.normalizeVolume.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val skipSilent by viewModel.skipSilent.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val savePlaybackState by viewModel.savedPlaybackState.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val saveLastPlayed by viewModel.saveRecentSongAndQueue.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = false)
+    val killServiceOnExit by viewModel.killServiceOnExit.map { it == TRUE }.collectAsStateWithLifecycle(initialValue = true)
+    val keepServiceAlive by viewModel.keepServiceAlive.collectAsStateWithLifecycle()
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
@@ -111,10 +131,10 @@ fun PlaybackSettingsScreen(
                 SettingsToggleItem(
                     title = "Enable crossfade",
                     subtitle = "Smoothly transition between songs",
-                    checked = crossfadeEnabled == DataStoreManager.Values.TRUE,
+                    checked = crossfadeEnabled,
                     accentColor = accentColor,
                     onCheckedChange = { enabled ->
-                        // TODO: Call viewModel or coroutine scope to update
+                        viewModel.setCrossfadeEnabled(enabled)
                     }
                 )
             }
@@ -126,10 +146,10 @@ fun PlaybackSettingsScreen(
                     value = crossfadeDuration.toFloat(),
                     valueRange = 1f..10f,
                     steps = 8,
-                    enabled = crossfadeEnabled == DataStoreManager.Values.TRUE,
+                    enabled = crossfadeEnabled,
                     accentColor = accentColor,
                     onValueChange = { newValue ->
-                        // TODO: Call viewModel or coroutine scope to update
+                        viewModel.setCrossfadeDuration(newValue.toInt())
                     }
                 )
             }
@@ -142,24 +162,24 @@ fun PlaybackSettingsScreen(
 
             item {
                 SettingsToggleItem(
-                    title = "Normalize volume",
-                    subtitle = "Balance audio levels across tracks",
-                    checked = normalizeVolume == DataStoreManager.Values.TRUE,
+                    title = stringResource(Res.string.normalize_volume),
+                    subtitle = stringResource(Res.string.balance_media_loudness),
+                    checked = normalizeVolume,
                     accentColor = accentColor,
                     onCheckedChange = { enabled ->
-                        // TODO: Call viewModel or coroutine scope to update
+                        viewModel.setNormalizeVolume(enabled)
                     }
                 )
             }
 
             item {
                 SettingsToggleItem(
-                    title = "Skip silent sections",
-                    subtitle = "Automatically skip silent parts of audio",
-                    checked = skipSilent == DataStoreManager.Values.TRUE,
+                    title = stringResource(Res.string.skip_silent),
+                    subtitle = stringResource(Res.string.skip_no_music_part),
+                    checked = skipSilent,
                     accentColor = accentColor,
                     onCheckedChange = { enabled ->
-                        // TODO: Call viewModel or coroutine scope to update
+                        viewModel.setSkipSilent(enabled)
                     }
                 )
             }
@@ -172,12 +192,54 @@ fun PlaybackSettingsScreen(
 
             item {
                 SettingsToggleItem(
-                    title = "Save playback state",
-                    subtitle = "Remember position when closing app",
-                    checked = saveStateOfPlayback == DataStoreManager.Values.TRUE,
+                    title = stringResource(Res.string.save_playback_state),
+                    subtitle = stringResource(Res.string.save_shuffle_and_repeat_mode),
+                    checked = savePlaybackState,
                     accentColor = accentColor,
                     onCheckedChange = { enabled ->
-                        // TODO: Call viewModel or coroutine scope to update
+                        viewModel.setSavePlaybackState(enabled)
+                    }
+                )
+            }
+
+            item {
+                SettingsToggleItem(
+                    title = stringResource(Res.string.save_last_played),
+                    subtitle = stringResource(Res.string.save_last_played_track_and_queue),
+                    checked = saveLastPlayed,
+                    accentColor = accentColor,
+                    onCheckedChange = { enabled ->
+                        viewModel.setSaveRecentSongAndQueue(enabled)
+                    }
+                )
+            }
+
+            // Section: Background Service
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsSectionHeader(title = "Background Service")
+            }
+
+            item {
+                SettingsToggleItem(
+                    title = stringResource(Res.string.kill_service_on_exit),
+                    subtitle = stringResource(Res.string.kill_service_on_exit_description),
+                    checked = killServiceOnExit,
+                    accentColor = accentColor,
+                    onCheckedChange = { enabled ->
+                        viewModel.setKillServiceOnExit(enabled)
+                    }
+                )
+            }
+
+            item {
+                SettingsToggleItem(
+                    title = stringResource(Res.string.keep_service_alive),
+                    subtitle = stringResource(Res.string.keep_service_alive_description),
+                    checked = keepServiceAlive,
+                    accentColor = accentColor,
+                    onCheckedChange = { enabled ->
+                        viewModel.setKeepServiceAlive(enabled)
                     }
                 )
             }

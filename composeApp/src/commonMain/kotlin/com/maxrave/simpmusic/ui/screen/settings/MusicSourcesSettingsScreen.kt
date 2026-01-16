@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.maxrave.domain.manager.DataStoreManager
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 /**
@@ -56,6 +57,7 @@ fun MusicSourcesSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val dataStoreManager: DataStoreManager = koinInject()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Last.fm
     val lastFmUsername by dataStoreManager.lastFmUsername.collectAsState(initial = "")
@@ -122,10 +124,10 @@ fun MusicSourcesSettingsScreen(
                     scrobbleEnabled = lastFmScrobbleEnabled == DataStoreManager.Values.TRUE,
                     nowPlayingEnabled = lastFmNowPlayingEnabled == DataStoreManager.Values.TRUE,
                     accentColor = accentColor,
-                    onConnect = { /* TODO: Launch auth flow */ },
-                    onDisconnect = { /* TODO: Clear session */ },
-                    onScrobbleToggle = { /* TODO: Toggle scrobble */ },
-                    onNowPlayingToggle = { /* TODO: Toggle now playing */ },
+                    onConnect = { /* Last.fm auth requires web browser - not implemented yet */ },
+                    onDisconnect = { scope.launch { dataStoreManager.clearLastFmSession() } },
+                    onScrobbleToggle = { enabled -> scope.launch { dataStoreManager.setLastFmScrobbleEnabled(enabled) } },
+                    onNowPlayingToggle = { enabled -> scope.launch { dataStoreManager.setLastFmNowPlayingEnabled(enabled) } },
                 )
             }
 
@@ -140,8 +142,8 @@ fun MusicSourcesSettingsScreen(
                     enabled = jioSaavnEnabled == DataStoreManager.Values.TRUE,
                     quality = jioSaavnQuality,
                     accentColor = accentColor,
-                    onEnableToggle = { /* TODO: Toggle JioSaavn */ },
-                    onQualityChange = { /* TODO: Change quality */ },
+                    onEnableToggle = { enabled -> scope.launch { dataStoreManager.setJioSaavnEnabled(enabled) } },
+                    onQualityChange = { quality -> scope.launch { dataStoreManager.setJioSaavnQuality(quality) } },
                 )
             }
 
