@@ -28,6 +28,8 @@ permissions:
 jobs:
   build-full-release:
     name: Build full release version
+    # Skip this job - requires Sentry secrets
+    if: false
     runs-on: ubuntu-latest
     defaults:
       run:
